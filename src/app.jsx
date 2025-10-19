@@ -53,7 +53,6 @@ const App = () => {
   const [localTeam, setLocalTeam] = useState();
   const [bombData, setBombData] = useState();
   const [settings, setSettings] = useState(loadSettings());
-  const [bannerOpened, setBannerOpened] = useState(true);
 
   // Guardar settings en localStorage
   useEffect(() => {
@@ -126,26 +125,12 @@ const App = () => {
     <div
       className="w-screen h-screen flex flex-col"
       style={{
-        background: `radial-gradient(50% 50% at 50% 50%, rgba(20, 40, 55, 0.95) 0%, rgba(7, 20, 30, 0.95) 100%)`,
+        // tema negro (sin cambiar layout)
+        background: `radial-gradient(60% 60% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,1) 100%)`,
         backdropFilter: `blur(7.5px)`,
       }}
     >
-      {bannerOpened && (
-        <section className="w-full flex items-center justify-between p-2 bg-radar-primary">
-          <span className="w-full text-center text-[#1E3A54]">
-            <span className="font-medium">€3.49</span> - HURRACAN - Plug & play feature rich shareable CS2 Web Radar
-            <a className="ml-2 inline banner-link text-[#1E3A54]" href="https://hurracan.com">Learn more</a>
-          </span>
-          <button onClick={() => setBannerOpened(false)} className="hover:bg-[#9BC5E4]">
-            <svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-              <path
-                fill="#4E799F"
-                d="M 7.21875 5.78125 L 5.78125 7.21875 L 14.5625 16 L 5.78125 24.78125 L 7.21875 26.21875 L 16 17.4375 L 24.78125 26.21875 L 26.21875 24.78125 L 17.4375 16 L 26.21875 7.21875 L 24.78125 5.78125 L 16 14.5625 Z"
-              />
-            </svg>
-          </button>
-        </section>
-      )}
+      {/* (banner removido a pedido) */}
 
       <div className={`w-full h-full flex flex-col justify-center overflow-hidden relative`}>
         {bombData && bombData.m_blow_time > 0 && !bombData.m_is_defused && (
