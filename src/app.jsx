@@ -1,6 +1,6 @@
 import ReactDOM from "react-dom/client";
 import { useEffect, useState } from "react";
-import "./App.css";
+import "./app.css";
 import PlayerCard from "./components/PlayerCard";
 import Radar from "./components/Radar";
 import { getLatency, Latency } from "./components/latency";
