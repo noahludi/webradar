@@ -27,7 +27,7 @@ export const getLatency = () => {
   return latencyData.averageTime;
 };
 
-export const Latency = ({ value, settings, setSettings }) => {
+export const Latency = ({ value, settings, setSettings, playerArray, localTeam }) => {
   return (
     <div className={`flex gap-2 absolute text-[normal] right-2.5 top-2.5`}>
       <div className={'flex gap-1'}>
@@ -35,7 +35,12 @@ export const Latency = ({ value, settings, setSettings }) => {
         <span>{value.toFixed(0)}ms</span>
       </div>
 
-      <SettingsButton settings={settings} onSettingsChange={setSettings} />
+      <SettingsButton
+        settings={settings}
+        onSettingsChange={setSettings}
+        playerArray={playerArray}
+        localTeam={localTeam}
+      />
     </div>
   );
 };
