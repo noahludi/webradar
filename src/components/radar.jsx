@@ -21,6 +21,8 @@ const Radar = ({
     }
     : { width: 0, height: 0 };
 
+  const mapRotationRef = useRef(0);
+
   const followedPlayer = useMemo(
     () =>
       settings.followPlayerId
@@ -34,10 +36,24 @@ const Radar = ({
     return getRadarPosition(mapData, followedPlayer.m_position);
   }, [followedPlayer, mapData]);
 
-  const mapRotation =
-    settings.rotateWithPlayer && followedPlayer
-      ? -(270 - followedPlayer.m_eye_angle)
-      : 0;
+  const mapRotation = useMemo(() => {
+    if (!settings.rotateWithPlayer || !followedPlayer) {
+      mapRotationRef.current = 0;
+      return 0;
+    }
+
+    const targetRotation = -(270 - followedPlayer.m_eye_angle);
+
+    const currentRotation = mapRotationRef.current % 360;
+    const normalizedTarget = ((targetRotation % 360) + 360) % 360;
+    const normalizedCurrent = ((currentRotation % 360) + 360) % 360;
+
+    const shortestDelta = ((normalizedTarget - normalizedCurrent + 540) % 360) - 180;
+    const nextRotation = currentRotation + shortestDelta;
+
+    mapRotationRef.current = nextRotation;
+    return nextRotation;
+  }, [settings.rotateWithPlayer, followedPlayer?.m_eye_angle]);
 
   const mapScale = settings.mapZoom || 1;
 
