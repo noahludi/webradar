@@ -36,7 +36,7 @@ const Radar = ({
 
   const mapRotation =
     settings.rotateWithPlayer && followedPlayer
-      ? 270 - followedPlayer.m_eye_angle
+      ? -(270 - followedPlayer.m_eye_angle)
       : 0;
 
   const mapScale = settings.mapZoom || 1;
@@ -46,9 +46,12 @@ const Radar = ({
       return { x: 0, y: 0 };
     }
 
+    const scaledWidth = radarDimensions.width * mapScale;
+    const scaledHeight = radarDimensions.height * mapScale;
+
     return {
-      x: radarDimensions.width / (2 * mapScale) - followedPosition.x * radarDimensions.width,
-      y: radarDimensions.height / (2 * mapScale) - followedPosition.y * radarDimensions.height,
+      x: radarDimensions.width / 2 - followedPosition.x * scaledWidth,
+      y: radarDimensions.height / 2 - followedPosition.y * scaledHeight,
     };
   }, [followedPosition, mapScale, radarDimensions.width, radarDimensions.height]);
 
