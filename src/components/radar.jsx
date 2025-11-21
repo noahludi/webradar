@@ -42,7 +42,7 @@ const Radar = ({
       return 0;
     }
 
-    const targetRotation = -(270 - followedPlayer.m_eye_angle);
+    const targetRotation = -(270 - followedPlayer.m_eye_angle) + 180;
 
     const currentRotation = mapRotationRef.current % 360;
     const normalizedTarget = ((targetRotation % 360) + 360) % 360;
@@ -93,6 +93,8 @@ const Radar = ({
             localTeam={localTeam}
             averageLatency={averageLatency}
             settings={settings}
+            isFollowed={settings.followPlayerId === player.m_idx}
+            mapRotation={mapRotation}
           />
         ))}
 

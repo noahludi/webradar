@@ -14,7 +14,7 @@ const calculatePlayerRotation = (playerData) => {
   return playerRotations[idx];
 };
 
-const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, settings }) => {
+const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, settings, isFollowed, mapRotation }) => {
   const [lastKnownPosition, setLastKnownPosition] = useState(null);
   const radarPosition = getRadarPosition(mapData, playerData.m_position) || { x: 0, y: 0 };
   const invalidPosition = radarPosition.x <= 0 && radarPosition.y <= 0;
@@ -22,7 +22,12 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
   const playerRef = useRef();
   const playerBounding = (playerRef.current &&
     playerRef.current.getBoundingClientRect()) || { width: 0, height: 0 };
-  const playerRotation = calculatePlayerRotation(playerData);
+
+  // For the followed player, counter-rotate to stay fixed while map rotates
+  // For other players, use normal rotation
+  const playerRotation = isFollowed
+    ? calculatePlayerRotation(playerData) + mapRotation
+    : calculatePlayerRotation(playerData);
 
   const radarImageBounding = (radarImage !== undefined &&
     { width: radarImage.clientWidth, height: radarImage.clientHeight }) || { width: 0, height: 0 };
@@ -90,13 +95,14 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
           }}
         />
 
-        {/* View cone (kept exactly as it was) */}
-        {settings.showViewCones && !playerData.m_is_dead && (
+        {/* View cone */}
+        {!playerData.m_is_dead && (
           <div
             className="absolute left-1/2 top-1/2 w-[1.5vw] h-[3vw] bg-white opacity-30"
             style={{
-              transform: `translate(-50%, 5%) rotate(0deg)`,
+              transform: `translate(-50%, -100%) rotate(180deg)`,
               clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+              transition: `transform ${averageLatency}ms linear`,
             }}
           />
         )}
