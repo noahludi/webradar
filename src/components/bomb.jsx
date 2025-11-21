@@ -9,7 +9,7 @@ const Bomb = ({ bombData, mapData, radarImage, localTeam, averageLatency, settin
     bombRef.current.getBoundingClientRect()) || { width: 0, height: 0 };
 
   const radarImageBounding = (radarImage !== undefined &&
-    radarImage.getBoundingClientRect()) || { width: 0, height: 0 };
+    { width: radarImage.clientWidth, height: radarImage.clientHeight }) || { width: 0, height: 0 };
   const radarImageTranslation = {
     x: radarImageBounding.width * radarPosition.x - bombBounding.width * 0.5,
     y: radarImageBounding.height * radarPosition.y - bombBounding.height * 0.5,
