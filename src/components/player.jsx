@@ -51,6 +51,13 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
     y: radarImageBounding.height * effectivePosition.y - playerBounding.height * 0.5,
   };
 
+  // Calculate health percentage and color for the circle
+  const healthPercentage = Math.max(0, Math.min(100, playerData.m_health)) / 100;
+  const isEnemy = playerData.m_team !== localTeam;
+
+  // Interpolate color from green (100% health) to red (0% health)
+  const healthColor = `rgb(${Math.round(255 * (1 - healthPercentage))}, ${Math.round(255 * healthPercentage)}, 0)`;
+
   return (
     <div
       className={`absolute origin-center rounded-[100%] left-0 top-0`}
@@ -64,6 +71,22 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
         WebkitMask: `${(playerData.m_is_dead && `url('./assets/icons/icon-enemy-death_png.png') no-repeat center / contain`) || `none`}`,
       }}
     >
+      {/* Health circle for enemies */}
+      {settings.showHealthCircles && isEnemy && !playerData.m_is_dead && (
+        <div
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            width: `${scaledSize * 1.6}vw`,
+            height: `${scaledSize * 1.6}vw`,
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            border: `4px solid ${healthColor}`,
+            boxShadow: `0 0 8px ${healthColor}, 0 0 0 1px rgba(0, 0, 0, 0.8)`,
+            transition: `border-color ${averageLatency}ms linear, box-shadow ${averageLatency}ms linear`,
+          }}
+        />
+      )}
       {/* Name above the dot - outside rotation container */}
       {(settings.showAllNames && playerData.m_team === localTeam) ||
         (settings.showEnemyNames && playerData.m_team !== localTeam) ? (
@@ -89,7 +112,7 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
           className={`w-full h-full rounded-[50%_50%_50%_0%] rotate-[315deg]`}
           style={{
 
-            backgroundColor: `${(playerData.m_team == localTeam && playerColors[playerData.m_color]) || `red`}`,
+            backgroundColor: `${(playerData.m_team == localTeam && playerColors[playerData.m_color]) || `#ff1493`}`,
             opacity: `${(playerData.m_is_dead && `0.8`) || (invalidPosition && `0`) || `1`}`,
           }}
         />

@@ -12,7 +12,7 @@ const CONNECTION_TIMEOUT = 5000;
 const USE_LOCALHOST = import.meta.env.VITE_USE_LOCALHOST === "1";
 
 /* Dominio del túnel Cloudflare (SIN puerto) */
-const PUBLIC_HOST   = import.meta.env.VITE_PUBLIC_HOST || "wslab.mercadoplus.xyz";
+const PUBLIC_HOST = import.meta.env.VITE_PUBLIC_HOST || "wslab.mercadoplus.xyz";
 
 /* Puerto local del backend (para dev) */
 const PORT = 22006;
@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS = {
   showAllNames: false,
   showEnemyNames: true,
   showViewCones: false,
+  showHealthCircles: true,
   mapZoom: 1,
   followPlayerId: null,
   rotateWithPlayer: true,
@@ -94,7 +95,7 @@ const App = () => {
       }
 
       connectionTimeout = setTimeout(() => {
-        try { webSocket.close(); } catch {}
+        try { webSocket.close(); } catch { }
       }, CONNECTION_TIMEOUT);
 
       webSocket.onopen = async () => {
@@ -129,7 +130,7 @@ const App = () => {
               ...(await (await fetch(`data/${map}/data.json`)).json()),
               name: map,
             });
-            document.body.style.backgroundImage = `url(./data/${map}/background.png)`;
+            document.body.style.backgroundImage = `none`;
           }
         } catch (e) {
           console.error("Failed to parse WS message:", e);
@@ -144,9 +145,7 @@ const App = () => {
     <div
       className="w-screen h-screen flex flex-col"
       style={{
-        // tema negro (sin cambiar layout)
-        background: `radial-gradient(60% 60% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,1) 100%)`,
-        backdropFilter: `blur(7.5px)`,
+        background: `transparent`,
       }}
     >
       {/* (banner removido a pedido) */}
@@ -167,9 +166,8 @@ const App = () => {
                   `bg-radar-secondary`
                 }
               />
-              <span>{`${bombData.m_blow_time.toFixed(1)}s ${
-                (bombData.m_is_defusing && `(${bombData.m_defuse_time.toFixed(1)}s)`) || ""
-              }`}</span>
+              <span>{`${bombData.m_blow_time.toFixed(1)}s ${(bombData.m_is_defusing && `(${bombData.m_defuse_time.toFixed(1)}s)`) || ""
+                }`}</span>
             </div>
           </div>
         )}
@@ -202,10 +200,10 @@ const App = () => {
               settings={settings}
             />
           )) || (
-            <div id="radar" className={`relative overflow-hidden origin-center`}>
-              <h1 className="radar_message">Connected! Waiting for data from usermode</h1>
-            </div>
-          )}
+              <div id="radar" className={`relative overflow-hidden origin-center`}>
+                <h1 className="radar_message">Connected! Waiting for data from usermode</h1>
+              </div>
+            )}
 
           <ul id="counterTerrorist" className="lg:flex hidden flex-col gap-7 m-0 p-0">
             {playerArray

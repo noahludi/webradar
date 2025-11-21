@@ -12,7 +12,6 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
         className="flex items-center gap-1 transition-all rounded-xl"
       >
         <img className={`w-[1.3rem]`} src={`./assets/icons/cog.svg`} />
-        <span className="text-radar-primary">Settings</span>
       </button>
 
       {isOpen && (
@@ -28,7 +27,7 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
               <input
                 type="range"
                 min="0.5"
-                max="2"
+                max="4"
                 step="0.1"
                 value={settings.dotSize}
                 onChange={(e) => onSettingsChange({ ...settings, dotSize: parseFloat(e.target.value) })}
@@ -127,6 +126,16 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
                   type="checkbox"
                   checked={settings.showViewCones}
                   onChange={(e) => onSettingsChange({ ...settings, showViewCones: e.target.checked })}
+                  className="relative h-5 w-9 rounded-full shadow-sm bg-radar-secondary/30 checked:bg-radar-secondary transition-colors duration-200 appearance-none before:absolute before:h-4 before:w-4 before:top-0.5 before:left-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 checked:before:translate-x-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-lg hover:bg-radar-secondary/20 transition-colors cursor-pointer">
+                <span className="text-radar-secondary text-sm">Health Circles</span>
+                <input
+                  type="checkbox"
+                  checked={settings.showHealthCircles}
+                  onChange={(e) => onSettingsChange({ ...settings, showHealthCircles: e.target.checked })}
                   className="relative h-5 w-9 rounded-full shadow-sm bg-radar-secondary/30 checked:bg-radar-secondary transition-colors duration-200 appearance-none before:absolute before:h-4 before:w-4 before:top-0.5 before:left-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 checked:before:translate-x-4"
                 />
               </label>
