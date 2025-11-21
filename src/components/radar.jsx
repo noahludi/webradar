@@ -41,26 +41,27 @@ const Radar = ({
 
   const mapScale = settings.mapZoom || 1;
 
+  const transformOrigin = followedPosition
+    ? `${followedPosition.x * 100}% ${followedPosition.y * 100}%`
+    : "50% 50%";
+
   const mapTranslation = useMemo(() => {
     if (!followedPosition || radarDimensions.width === 0 || radarDimensions.height === 0) {
       return { x: 0, y: 0 };
     }
 
-    const scaledWidth = radarDimensions.width * mapScale;
-    const scaledHeight = radarDimensions.height * mapScale;
-
     return {
-      x: radarDimensions.width / 2 - followedPosition.x * scaledWidth,
-      y: radarDimensions.height / 2 - followedPosition.y * scaledHeight,
+      x: radarDimensions.width / 2 - followedPosition.x * radarDimensions.width,
+      y: radarDimensions.height / 2 - followedPosition.y * radarDimensions.height,
     };
-  }, [followedPosition, mapScale, radarDimensions.width, radarDimensions.height]);
+  }, [followedPosition, radarDimensions.width, radarDimensions.height]);
 
   return (
     <div id="radar" className={`relative overflow-hidden origin-center`}>
       <div
         className="relative"
         style={{
-          transformOrigin: "center center",
+          transformOrigin,
           transform: `translate(${mapTranslation.x}px, ${mapTranslation.y}px) rotate(${mapRotation}deg) scale(${mapScale})`,
           transition: `transform ${averageLatency}ms linear`,
         }}
