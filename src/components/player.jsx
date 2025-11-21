@@ -25,7 +25,7 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
   const playerRotation = calculatePlayerRotation(playerData);
 
   const radarImageBounding = (radarImage !== undefined &&
-    radarImage.getBoundingClientRect()) || { width: 0, height: 0 };
+    { width: radarImage.clientWidth, height: radarImage.clientHeight }) || { width: 0, height: 0 };
 
   const scaledSize = 0.7 * settings.dotSize;
 

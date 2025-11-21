@@ -39,11 +39,17 @@ const DEFAULT_SETTINGS = {
   showAllNames: false,
   showEnemyNames: true,
   showViewCones: false,
+  mapZoom: 1,
+  followPlayerId: null,
+  rotateWithPlayer: true,
 };
 
 const loadSettings = () => {
   const savedSettings = localStorage.getItem("radarSettings");
-  return savedSettings ? JSON.parse(savedSettings) : DEFAULT_SETTINGS;
+  if (!savedSettings) return DEFAULT_SETTINGS;
+
+  const parsed = JSON.parse(savedSettings);
+  return { ...DEFAULT_SETTINGS, ...parsed };
 };
 
 const App = () => {
@@ -53,6 +59,19 @@ const App = () => {
   const [localTeam, setLocalTeam] = useState();
   const [bombData, setBombData] = useState();
   const [settings, setSettings] = useState(loadSettings());
+
+  useEffect(() => {
+    if (
+      settings.followPlayerId &&
+      !playerArray.some(
+        (player) =>
+          player.m_idx === settings.followPlayerId &&
+          (localTeam === undefined || player.m_team === localTeam)
+      )
+    ) {
+      setSettings((prev) => ({ ...prev, followPlayerId: null }));
+    }
+  }, [playerArray, localTeam, settings.followPlayerId]);
 
   // Guardar settings en localStorage
   useEffect(() => {
@@ -156,7 +175,13 @@ const App = () => {
         )}
 
         <div className={`flex items-center justify-evenly`}>
-          <Latency value={averageLatency} settings={settings} setSettings={setSettings} />
+          <Latency
+            value={averageLatency}
+            settings={settings}
+            setSettings={setSettings}
+            playerArray={playerArray}
+            localTeam={localTeam}
+          />
 
           <ul id="terrorist" className="lg:flex hidden flex-col gap-7 m-0 p-0">
             {playerArray

@@ -1,7 +1,9 @@
 import { useState } from "react";
 
-const SettingsButton = ({ settings, onSettingsChange }) => {
+const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTeam }) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  const teamPlayers = playerArray.filter((player) => player.m_team === localTeam);
 
   return (
     <div className="z-50">
@@ -56,6 +58,48 @@ const SettingsButton = ({ settings, onSettingsChange }) => {
               />
             </div>
 
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-radar-secondary text-sm">Zoom del mapa</span>
+                <span className="text-radar-primary text-sm font-mono">{settings.mapZoom.toFixed(1)}x</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={settings.mapZoom}
+                onChange={(e) => onSettingsChange({ ...settings, mapZoom: parseFloat(e.target.value) })}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-radar-primary"
+                style={{
+                  background: `linear-gradient(to right, #b1d0e7 ${((settings.mapZoom - 0.5) / 1.5) * 100}%, rgba(59, 130, 246, 0.2) ${((settings.mapZoom - 0.5) / 1.5) * 100}%)`
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-radar-secondary text-sm">Seguir jugador (tu team)</span>
+              </div>
+              <select
+                value={settings.followPlayerId ?? ""}
+                onChange={(e) =>
+                  onSettingsChange({
+                    ...settings,
+                    followPlayerId: e.target.value === "" ? null : parseInt(e.target.value),
+                  })
+                }
+                className="w-full bg-radar-secondary/20 border border-radar-secondary/40 rounded-lg p-2 text-sm text-radar-primary focus:outline-none focus:ring-2 focus:ring-radar-primary/50"
+              >
+                <option value="">Ninguno</option>
+                {teamPlayers.map((player) => (
+                  <option key={player.m_idx} value={player.m_idx}>
+                    {player.m_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-1">
               <label className="flex items-center justify-between p-3 rounded-lg hover:bg-radar-secondary/20 transition-colors cursor-pointer">
                 <span className="text-radar-secondary text-sm">Ally Names</span>
@@ -84,6 +128,17 @@ const SettingsButton = ({ settings, onSettingsChange }) => {
                   checked={settings.showViewCones}
                   onChange={(e) => onSettingsChange({ ...settings, showViewCones: e.target.checked })}
                   className="relative h-5 w-9 rounded-full shadow-sm bg-radar-secondary/30 checked:bg-radar-secondary transition-colors duration-200 appearance-none before:absolute before:h-4 before:w-4 before:top-0.5 before:left-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 checked:before:translate-x-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-3 rounded-lg hover:bg-radar-secondary/20 transition-colors cursor-pointer">
+                <span className="text-radar-secondary text-sm">Rotar con jugador seguido</span>
+                <input
+                  type="checkbox"
+                  checked={settings.rotateWithPlayer}
+                  disabled={!settings.followPlayerId}
+                  onChange={(e) => onSettingsChange({ ...settings, rotateWithPlayer: e.target.checked })}
+                  className="relative h-5 w-9 rounded-full shadow-sm bg-radar-secondary/30 checked:bg-radar-secondary transition-colors duration-200 appearance-none before:absolute before:h-4 before:w-4 before:top-0.5 before:left-0.5 before:bg-white before:rounded-full before:transition-transform before:duration-200 checked:before:translate-x-4 disabled:opacity-50"
                 />
               </label>
             </div>
