@@ -23,11 +23,10 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
   const playerBounding = (playerRef.current &&
     playerRef.current.getBoundingClientRect()) || { width: 0, height: 0 };
 
-  // For the followed player, counter-rotate to stay fixed while map rotates
-  // For other players, use normal rotation
-  const playerRotation = isFollowed
-    ? calculatePlayerRotation(playerData) + mapRotation
-    : calculatePlayerRotation(playerData);
+  // Base rotation for all players and counter-rotate the followed one to
+  // avoid double rotation when the map itself is rotating.
+  const baseRotation = calculatePlayerRotation(playerData);
+  const playerRotation = isFollowed ? baseRotation - mapRotation : baseRotation;
 
   const radarImageBounding = (radarImage !== undefined &&
     { width: radarImage.clientWidth, height: radarImage.clientHeight }) || { width: 0, height: 0 };
@@ -100,7 +99,7 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
           <div
             className="absolute left-1/2 top-1/2 w-[1.5vw] h-[3vw] bg-white opacity-30"
             style={{
-              transform: `translate(-50%, -100%) rotate(180deg)`,
+              transform: `translate(-50%, -100%)`,
               clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
               transition: `transform ${averageLatency}ms linear`,
             }}
