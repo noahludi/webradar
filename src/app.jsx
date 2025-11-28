@@ -7,21 +7,20 @@ import { getLatency, Latency } from "./components/latency";
 import MaskedIcon from "./components/maskedicon";
 
 const CONNECTION_TIMEOUT = 5000;
+const WS_PORT = 8080;
+const DEFAULT_MAP_NAME = "de_mirage";
+const DEFAULT_MODEL = "tm_jumpsuit";
 
-/* 1 = solo local (tu PC); 0 = remoto — pero como ya no hay túnel, siempre será local */
-const USE_LOCALHOST = true;
-
-/* Puerto local del backend */
-const PORT = 22006;
-
-/* Ruta del WS en tu backend */
-const WS_PATH = "/cs2_webradar";
-
-/* Construye la URL correcta (solo local) */
-const buildWsUrl = () => {
-  return `ws://localhost:${PORT}${WS_PATH}`;
+const PLAYER_COLOR_TO_INDEX = {
+  blue: 0,
+  green: 1,
+  yellow: 2,
+  orange: 3,
+  purple: 4,
+  white: 5,
 };
 
+const buildWsUrl = () => `ws://localhost:${WS_PORT}`;
 
 const DEFAULT_SETTINGS = {
   dotSize: 1,
@@ -43,10 +42,55 @@ const loadSettings = () => {
   return { ...DEFAULT_SETTINGS, ...parsed };
 };
 
+const mapPlayerColor = (playerColor) => {
+  if (!playerColor) return 0;
+  const normalized = playerColor.toLowerCase();
+  return PLAYER_COLOR_TO_INDEX[normalized] ?? 0;
+};
+
+const parseWebSocketMessage = async (data) => {
+  if (typeof data === "string") return JSON.parse(data);
+  if (data?.text) return JSON.parse(await data.text());
+  return data;
+};
+
+const normalizeRadarPayload = (payload) => {
+  const players = Array.isArray(payload?.players) ? payload.players : [];
+  const mapName = payload?.map || DEFAULT_MAP_NAME;
+
+  const normalizedPlayers = players.map((player, index) => ({
+    m_idx: player.entity_id ?? index,
+    m_name: player.name || `Player ${index + 1}`,
+    m_steam_id: player.steamid ?? null,
+    m_team: player.team_num ?? 0,
+    m_color: mapPlayerColor(player.player_color),
+    m_health: player.health ?? 0,
+    m_armor: player.armor_value ?? 0,
+    m_money: player.balance ?? 0,
+    m_has_helmet: Boolean(player.has_helmet),
+    m_has_defuser: Boolean(player.has_defuser),
+    m_is_defusing: Boolean(player.is_defusing),
+    m_has_bomb: false,
+    m_weapons: {},
+    m_position: { x: player.X ?? 0, y: player.Y ?? 0, z: player.Z ?? 0 },
+    m_eye_angle: 0,
+    m_is_dead: player.is_alive === 0 || player.is_alive === false,
+    m_model_name: DEFAULT_MODEL,
+    m_last_place_name: player.last_place_name || "",
+  }));
+
+  return {
+    players: normalizedPlayers,
+    localTeam: normalizedPlayers[0]?.m_team ?? null,
+    mapName,
+  };
+};
+
 const App = () => {
   const [averageLatency, setAverageLatency] = useState(0);
   const [playerArray, setPlayerArray] = useState([]);
   const [mapData, setMapData] = useState();
+  const [mapName, setMapName] = useState(DEFAULT_MAP_NAME);
   const [localTeam, setLocalTeam] = useState();
   const [bombData, setBombData] = useState();
   const [settings, setSettings] = useState(loadSettings());
@@ -70,10 +114,10 @@ const App = () => {
   }, [settings]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      let webSocket = null;
-      let connectionTimeout = null;
+    let webSocket = null;
+    let connectionTimeout = null;
 
+    const fetchData = async () => {
       try {
         const webSocketURL = buildWsUrl();
         console.info(`Attempting WebSocket connection to: ${webSocketURL}`);
@@ -110,19 +154,13 @@ const App = () => {
         setAverageLatency(getLatency());
 
         try {
-          const parsedData = JSON.parse(await event.data.text());
-          setPlayerArray(parsedData.m_players);
-          setLocalTeam(parsedData.m_local_team);
-          setBombData(parsedData.m_bomb);
+          const parsedData = await parseWebSocketMessage(event.data);
+          const normalized = normalizeRadarPayload(parsedData);
 
-          const map = parsedData.m_map;
-          if (map !== "invalid") {
-            setMapData({
-              ...(await (await fetch(`data/${map}/data.json`)).json()),
-              name: map,
-            });
-            document.body.style.backgroundImage = `none`;
-          }
+          setPlayerArray(normalized.players);
+          setLocalTeam(normalized.localTeam);
+          setMapName(normalized.mapName);
+          setBombData(null);
         } catch (e) {
           console.error("Failed to parse WS message:", e);
         }
@@ -130,7 +168,26 @@ const App = () => {
     };
 
     fetchData();
+
+    return () => {
+      clearTimeout(connectionTimeout);
+      try { webSocket && webSocket.close(); } catch { }
+    };
   }, []);
+
+  useEffect(() => {
+    const loadMapData = async () => {
+      try {
+        const data = await (await fetch(`data/${mapName}/data.json`)).json();
+        setMapData({ ...data, name: mapName });
+        document.body.style.backgroundImage = `none`;
+      } catch (error) {
+        console.error(`Failed to load map data for ${mapName}:`, error);
+      }
+    };
+
+    loadMapData();
+  }, [mapName]);
 
   return (
     <div
@@ -177,7 +234,7 @@ const App = () => {
               .filter((player) => player.m_team == 2)
               .map((player) => (
                 <PlayerCard
-                  right={false}
+                  isOnRightSide={false}
                   key={player.m_idx}
                   playerData={player}
                 />
@@ -197,7 +254,7 @@ const App = () => {
           )) || (
               <div id="radar" className="relative overflow-hidden origin-center">
                 <h1 className="radar_message">
-                  Connected! Waiting for data from usermode
+                  Connected! Waiting for data from the WebSocket feed
                 </h1>
               </div>
             )}
@@ -210,7 +267,7 @@ const App = () => {
               .filter((player) => player.m_team == 3)
               .map((player) => (
                 <PlayerCard
-                  right={true}
+                  isOnRightSide={true}
                   key={player.m_idx}
                   playerData={player}
                   settings={settings}
