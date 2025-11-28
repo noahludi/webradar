@@ -8,30 +8,20 @@ import MaskedIcon from "./components/maskedicon";
 
 const CONNECTION_TIMEOUT = 5000;
 
-/* 1 = solo local (tu PC); 0 = usar el túnel público */
-const USE_LOCALHOST = import.meta.env.VITE_USE_LOCALHOST === "1";
+/* 1 = solo local (tu PC); 0 = remoto — pero como ya no hay túnel, siempre será local */
+const USE_LOCALHOST = true;
 
-/* Dominio del túnel Cloudflare (SIN puerto) */
-const PUBLIC_HOST = import.meta.env.VITE_PUBLIC_HOST || "wslab.mercadoplus.xyz";
-
-/* Puerto local del backend (para dev) */
+/* Puerto local del backend */
 const PORT = 22006;
 
-/* Ruta CORRECTA del WS en tu backend */
+/* Ruta del WS en tu backend */
 const WS_PATH = "/cs2_webradar";
 
-/* Construye la URL correcta según entorno */
+/* Construye la URL correcta (solo local) */
 const buildWsUrl = () => {
-  const isLocal =
-    USE_LOCALHOST ||
-    window.location.hostname === "localhost" ||
-    window.location.hostname.startsWith("127.") ||
-    window.location.hostname.startsWith("192.168.");
-
-  return isLocal
-    ? `ws://localhost:${PORT}${WS_PATH}`   // desarrollo local
-    : `wss://${PUBLIC_HOST}${WS_PATH}`;    // público via Cloudflare (sin puerto)
+  return `ws://localhost:${PORT}${WS_PATH}`;
 };
+
 
 const DEFAULT_SETTINGS = {
   dotSize: 1,
@@ -111,7 +101,8 @@ const App = () => {
       webSocket.onerror = async (error) => {
         clearTimeout(connectionTimeout);
         const el = document.getElementsByClassName("radar_message")[0];
-        if (el) el.textContent = `WebSocket connection failed. Check the host/URL and try again`;
+        if (el)
+          el.textContent = `WebSocket connection failed. Check the host/URL and try again`;
         console.error(error);
       };
 
@@ -144,16 +135,12 @@ const App = () => {
   return (
     <div
       className="w-screen h-screen flex flex-col"
-      style={{
-        background: `transparent`,
-      }}
+      style={{ background: `transparent` }}
     >
-      {/* (banner removido a pedido) */}
-
-      <div className={`w-full h-full flex flex-col justify-center overflow-hidden relative`}>
+      <div className="w-full h-full flex flex-col justify-center overflow-hidden relative">
         {bombData && bombData.m_blow_time > 0 && !bombData.m_is_defused && (
-          <div className={`absolute left-1/2 top-2 flex-col items-center gap-1 z-50`}>
-            <div className={`flex justify-center items-center gap-1`}>
+          <div className="absolute left-1/2 top-2 flex-col items-center gap-1 z-50">
+            <div className="flex justify-center items-center gap-1">
               <MaskedIcon
                 path={`./assets/icons/c4_sml.png`}
                 height={32}
@@ -166,13 +153,17 @@ const App = () => {
                   `bg-radar-secondary`
                 }
               />
-              <span>{`${bombData.m_blow_time.toFixed(1)}s ${(bombData.m_is_defusing && `(${bombData.m_defuse_time.toFixed(1)}s)`) || ""
-                }`}</span>
+              <span>
+                {`${bombData.m_blow_time.toFixed(1)}s ${(bombData.m_is_defusing &&
+                  `(${bombData.m_defuse_time.toFixed(1)}s)`) ||
+                  ""
+                  }`}
+              </span>
             </div>
           </div>
         )}
 
-        <div className={`flex items-center justify-evenly`}>
+        <div className="flex items-center justify-evenly">
           <Latency
             value={averageLatency}
             settings={settings}
@@ -185,7 +176,11 @@ const App = () => {
             {playerArray
               .filter((player) => player.m_team == 2)
               .map((player) => (
-                <PlayerCard right={false} key={player.m_idx} playerData={player} />
+                <PlayerCard
+                  right={false}
+                  key={player.m_idx}
+                  playerData={player}
+                />
               ))}
           </ul>
 
@@ -200,12 +195,17 @@ const App = () => {
               settings={settings}
             />
           )) || (
-              <div id="radar" className={`relative overflow-hidden origin-center`}>
-                <h1 className="radar_message">Connected! Waiting for data from usermode</h1>
+              <div id="radar" className="relative overflow-hidden origin-center">
+                <h1 className="radar_message">
+                  Connected! Waiting for data from usermode
+                </h1>
               </div>
             )}
 
-          <ul id="counterTerrorist" className="lg:flex hidden flex-col gap-7 m-0 p-0">
+          <ul
+            id="counterTerrorist"
+            className="lg:flex hidden flex-col gap-7 m-0 p-0"
+          >
             {playerArray
               .filter((player) => player.m_team == 3)
               .map((player) => (

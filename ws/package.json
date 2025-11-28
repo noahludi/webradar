@@ -1,0 +1,10 @@
+{
+  "name": "cs2-radar-websocket",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
