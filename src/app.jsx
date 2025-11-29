@@ -20,7 +20,11 @@ const PLAYER_COLOR_TO_INDEX = {
   white: 5,
 };
 
-const buildWsUrl = () => `ws://localhost:${WS_PORT}`;
+const buildWsUrl = () => {
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const host = window.location.hostname || "localhost"; // ej: 192.168.2.100 en tu celu
+  return `${protocol}://${host}:${WS_PORT}`;
+};
 
 const DEFAULT_SETTINGS = {
   dotSize: 1,
@@ -32,6 +36,7 @@ const DEFAULT_SETTINGS = {
   mapZoom: 1,
   followPlayerId: null,
   rotateWithPlayer: true,
+  mapName: DEFAULT_MAP_NAME, // 👈 ahora el mapa vive en settings
 };
 
 const loadSettings = () => {
@@ -90,10 +95,11 @@ const App = () => {
   const [averageLatency, setAverageLatency] = useState(0);
   const [playerArray, setPlayerArray] = useState([]);
   const [mapData, setMapData] = useState();
-  const [mapName, setMapName] = useState(DEFAULT_MAP_NAME);
   const [localTeam, setLocalTeam] = useState();
   const [bombData, setBombData] = useState();
   const [settings, setSettings] = useState(loadSettings());
+
+  const mapName = settings.mapName || DEFAULT_MAP_NAME;
 
   useEffect(() => {
     if (
@@ -129,7 +135,9 @@ const App = () => {
       }
 
       connectionTimeout = setTimeout(() => {
-        try { webSocket.close(); } catch { }
+        try {
+          webSocket.close();
+        } catch { }
       }, CONNECTION_TIMEOUT);
 
       webSocket.onopen = async () => {
@@ -159,7 +167,15 @@ const App = () => {
 
           setPlayerArray(normalized.players);
           setLocalTeam(normalized.localTeam);
-          setMapName(normalized.mapName);
+
+          // si el backend manda "map", actualizamos settings.mapName
+          if (parsedData?.map) {
+            setSettings((prev) => ({
+              ...prev,
+              mapName: normalized.mapName,
+            }));
+          }
+
           setBombData(null);
         } catch (e) {
           console.error("Failed to parse WS message:", e);
@@ -171,7 +187,9 @@ const App = () => {
 
     return () => {
       clearTimeout(connectionTimeout);
-      try { webSocket && webSocket.close(); } catch { }
+      try {
+        webSocket && webSocket.close();
+      } catch { }
     };
   }, []);
 
