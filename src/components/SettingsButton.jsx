@@ -10,13 +10,30 @@ const MAP_OPTIONS = [
   { value: "de_vertigo", label: "Vertigo" },
   { value: "de_anubis", label: "Anubis" },
   { value: "de_dust2", label: "Dust 2" },
+  { value: "de_train", label: "Train" },
 ];
+
+// Key estable para React: steamid si existe, sino m_idx
+const getPlayerKey = (player) =>
+  player.steamid ?? player.m_steamid ?? player.m_xuid ?? player.m_idx ?? `p-${player.m_name}`;
 
 const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTeam }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const teamPlayers = playerArray.filter((player) => player.m_team === localTeam);
+  // Ordenamos los players siempre igual para que no “bailen” en el selector
+  const sortedPlayers = [...playerArray].sort((a, b) => {
+    if (a.m_team !== b.m_team) return a.m_team - b.m_team;
+    const nameA = a.m_name || "";
+    const nameB = b.m_name || "";
+    if (nameA !== nameB) return nameA.localeCompare(nameB);
+    return (a.m_idx ?? 0) - (b.m_idx ?? 0);
+  });
+
+  const teamPlayers = sortedPlayers.filter((player) => player.m_team === localTeam);
+  const selectablePlayers = sortedPlayers;
+
   const currentMap = settings.mapName || "de_mirage";
+  const selectedEnemyIds = settings.selectedEnemyIds || [];
 
   return (
     <div className="z-50">
@@ -49,7 +66,9 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
                 }
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-radar-primary"
                 style={{
-                  background: `linear-gradient(to right, #b1d0e7 ${((settings.dotSize - 0.5) / 1.5) * 100}%, rgba(59, 130, 246, 0.2) ${((settings.dotSize - 0.5) / 1.5) * 100}%)`,
+                  background: `linear-gradient(to right, #b1d0e7 ${((settings.dotSize - 0.5) / 1.5) * 100
+                    }%, rgba(59, 130, 246, 0.2) ${((settings.dotSize - 0.5) / 1.5) * 100
+                    }%)`,
                 }}
               />
             </div>
@@ -71,7 +90,9 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
                 }
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-radar-primary"
                 style={{
-                  background: `linear-gradient(to right, #b1d0e7 ${((settings.bombSize - 0.1) / 1.9) * 100}%, rgba(59, 130, 246, 0.2) ${((settings.bombSize - 0.1) / 1.9) * 100}%)`,
+                  background: `linear-gradient(to right, #b1d0e7 ${((settings.bombSize - 0.1) / 1.9) * 100
+                    }%, rgba(59, 130, 246, 0.2) ${((settings.bombSize - 0.1) / 1.9) * 100
+                    }%)`,
                 }}
               />
             </div>
@@ -95,12 +116,14 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
                 }
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-radar-primary"
                 style={{
-                  background: `linear-gradient(to right, #b1d0e7 ${((settings.mapZoom - 0.5) / 1.5) * 100}%, rgba(59, 130, 246, 0.2) ${((settings.mapZoom - 0.5) / 1.5) * 100}%)`,
+                  background: `linear-gradient(to right, #b1d0e7 ${((settings.mapZoom - 0.5) / 1.5) * 100
+                    }%, rgba(59, 130, 246, 0.2) ${((settings.mapZoom - 0.5) / 1.5) * 100
+                    }%)`,
                 }}
               />
             </div>
 
-            {/* 👇 Nuevo: selector de mapa dentro del panel */}
+            {/* Selector de mapa */}
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-radar-secondary text-sm">Mapa</span>
@@ -123,7 +146,7 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
               </select>
             </div>
 
-            {/* Seguir jugador */}
+            {/* Seguir jugador (tu team) */}
             <div className="space-y-2">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-radar-secondary text-sm">Seguir jugador (tu team)</span>
@@ -133,18 +156,63 @@ const SettingsButton = ({ settings, onSettingsChange, playerArray = [], localTea
                 onChange={(e) =>
                   onSettingsChange({
                     ...settings,
-                    followPlayerId: e.target.value === "" ? null : parseInt(e.target.value),
+                    followPlayerId: e.target.value === "" ? null : parseInt(e.target.value, 10),
                   })
                 }
                 className="w-full bg-radar-secondary/20 border border-radar-secondary/40 rounded-lg p-2 text-sm text-radar-primary focus:outline-none focus:ring-2 focus:ring-radar-primary/50"
               >
                 <option value="">Ninguno</option>
                 {teamPlayers.map((player) => (
-                  <option key={player.m_idx} value={player.m_idx}>
+                  <option key={getPlayerKey(player)} value={player.m_idx}>
                     {player.m_name}
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Jugadores visibles */}
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-radar-secondary text-sm">Jugadores visibles</span>
+              </div>
+
+              {selectablePlayers.length === 0 && (
+                <p className="text-xs text-radar-secondary/70">
+                  No se detectaron jugadores todavía.
+                </p>
+              )}
+
+              {selectablePlayers.map((player) => {
+                const checked = selectedEnemyIds.includes(player.m_idx);
+                return (
+                  <label
+                    key={getPlayerKey(player)}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-radar-secondary/20 transition-colors cursor-pointer text-xs"
+                  >
+                    <span className="text-radar-primary truncate mr-2">
+                      {player.m_name || `Player ${player.m_idx}`}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        const current = selectedEnemyIds;
+                        let next;
+                        if (e.target.checked) {
+                          next = [...new Set([...current, player.m_idx])];
+                        } else {
+                          next = current.filter((id) => id !== player.m_idx);
+                        }
+                        onSettingsChange({
+                          ...settings,
+                          selectedEnemyIds: next,
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-radar-secondary/50 text-radar-primary focus:ring-radar-primary/60"
+                    />
+                  </label>
+                );
+              })}
             </div>
 
             {/* Toggles */}

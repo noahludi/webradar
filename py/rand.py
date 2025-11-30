@@ -74,7 +74,6 @@ def connect_ws():
             return ws
         except Exception as e:
             print(Fore.RED + f"[WS] Error conectando al WS ({e}), reintentando en 5s...")
-            time.sleep(5)
 
 # ============================
 #   HELPERS

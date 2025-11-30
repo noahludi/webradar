@@ -21,8 +21,6 @@ const Radar = ({
     }
     : { width: 0, height: 0 };
 
-  const mapRotationRef = useRef(0);
-
   const followedPlayer = useMemo(
     () =>
       settings.followPlayerId
@@ -36,23 +34,13 @@ const Radar = ({
     return getRadarPosition(mapData, followedPlayer.m_position);
   }, [followedPlayer, mapData]);
 
+  // Rotación instantánea, sin smoothing
   const mapRotation = useMemo(() => {
     if (!settings.rotateWithPlayer || !followedPlayer) {
-      mapRotationRef.current = 0;
       return 0;
     }
 
-    const targetRotation = -(270 - followedPlayer.m_eye_angle) + 180;
-
-    const currentRotation = mapRotationRef.current % 360;
-    const normalizedTarget = ((targetRotation % 360) + 360) % 360;
-    const normalizedCurrent = ((currentRotation % 360) + 360) % 360;
-
-    const shortestDelta = ((normalizedTarget - normalizedCurrent + 540) % 360) - 180;
-    const nextRotation = currentRotation + shortestDelta;
-
-    mapRotationRef.current = nextRotation;
-    return nextRotation;
+    return -(270 - followedPlayer.m_eye_angle) + 180;
   }, [settings.rotateWithPlayer, followedPlayer?.m_eye_angle]);
 
   const mapScale = settings.mapZoom || 1;
@@ -72,6 +60,19 @@ const Radar = ({
     };
   }, [followedPosition, radarDimensions.width, radarDimensions.height]);
 
+  // 👇 Ahora NO usamos localTeam para ocultar, todos son "enemigos" a efectos del filtro
+  const selectedEnemyIds = settings.selectedEnemyIds || [];
+
+  const filteredPlayers = useMemo(() => {
+    // Si no hay selección, mostramos a todos
+    if (selectedEnemyIds.length === 0) {
+      return playerArray;
+    }
+
+    // Si hay selección, sólo los seleccionados (sea el team que sea)
+    return playerArray.filter((player) => selectedEnemyIds.includes(player.m_idx));
+  }, [playerArray, selectedEnemyIds]);
+
   return (
     <div id="radar" className={`relative overflow-hidden origin-center`}>
       <div
@@ -79,12 +80,11 @@ const Radar = ({
         style={{
           transformOrigin,
           transform: `translate(${mapTranslation.x}px, ${mapTranslation.y}px) rotate(${mapRotation}deg) scale(${mapScale})`,
-          transition: `transform ${averageLatency}ms linear`,
         }}
       >
         <img ref={radarImageRef} className={`w-full h-auto`} src={radarImage} />
 
-        {playerArray.map((player) => (
+        {filteredPlayers.map((player) => (
           <Player
             key={player.m_idx}
             playerData={player}

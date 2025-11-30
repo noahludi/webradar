@@ -1,29 +1,22 @@
-// app.js (ESM)
-import { WebSocketServer } from 'ws';
-
-const PORT = 8080;
-
-// host: '0.0.0.0' para escuchar en la red local también
-const wss = new WebSocketServer({ port: PORT, host: '0.0.0.0' });
+// app.js
+let lastBroadcast = 0;
+const MIN_INTERVAL_MS = 50; // 20 FPS
 
 wss.on('connection', (ws) => {
   console.log('[WS] Cliente conectado');
 
   ws.on('message', (data) => {
-    const msg = data.toString();
-    console.log('[WS] Mensaje recibido, len:', msg.length);
+    const now = Date.now();
+    if (now - lastBroadcast < MIN_INTERVAL_MS) {
+      // ignoramos mensajes demasiado seguidos
+      return;
+    }
+    lastBroadcast = now;
 
-    // Broadcast a todos los demás clientes (front del radar, etc.)
     for (const client of wss.clients) {
       if (client !== ws && client.readyState === ws.OPEN) {
-        client.send(msg);
+        client.send(data);
       }
     }
   });
-
-  ws.on('close', () => {
-    console.log('[WS] Cliente desconectado');
-  });
 });
-
-console.log(`[WS] Servidor WebSocket escuchando en ws://0.0.0.0:${PORT}`);

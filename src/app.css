@@ -21,7 +21,7 @@ body {
   margin: 0;
   font-family: "TASAOrbiter";
   color: var(--text-primary);
-  background: transparent !important;
+  background: #000000; /*transparent !important;*/
 }
 
 /* banner eliminado */
