@@ -10,7 +10,7 @@ const Radar = ({
   localTeam,
   averageLatency,
   bombData,
-  settings
+  settings,
 }) => {
   const radarImageRef = useRef();
 
@@ -24,7 +24,9 @@ const Radar = ({
   const followedPlayer = useMemo(
     () =>
       settings.followPlayerId
-        ? playerArray.find((player) => player.m_idx === settings.followPlayerId)
+        ? playerArray.find(
+          (player) => player.m_idx === settings.followPlayerId
+        )
         : null,
     [playerArray, settings.followPlayerId]
   );
@@ -50,28 +52,26 @@ const Radar = ({
     : "50% 50%";
 
   const mapTranslation = useMemo(() => {
-    if (!followedPosition || radarDimensions.width === 0 || radarDimensions.height === 0) {
+    if (
+      !followedPosition ||
+      radarDimensions.width === 0 ||
+      radarDimensions.height === 0
+    ) {
       return { x: 0, y: 0 };
     }
 
     return {
-      x: radarDimensions.width / 2 - followedPosition.x * radarDimensions.width,
-      y: radarDimensions.height / 2 - followedPosition.y * radarDimensions.height,
+      x:
+        radarDimensions.width / 2 -
+        followedPosition.x * radarDimensions.width,
+      y:
+        radarDimensions.height / 2 -
+        followedPosition.y * radarDimensions.height,
     };
   }, [followedPosition, radarDimensions.width, radarDimensions.height]);
 
-  // 👇 Ahora NO usamos localTeam para ocultar, todos son "enemigos" a efectos del filtro
-  const selectedEnemyIds = settings.selectedEnemyIds || [];
-
-  const filteredPlayers = useMemo(() => {
-    // Si no hay selección, mostramos a todos
-    if (selectedEnemyIds.length === 0) {
-      return playerArray;
-    }
-
-    // Si hay selección, sólo los seleccionados (sea el team que sea)
-    return playerArray.filter((player) => selectedEnemyIds.includes(player.m_idx));
-  }, [playerArray, selectedEnemyIds]);
+  // 👇 Nuevo: team que se dibuja “full”
+  const drawTeam = settings.drawTeam ?? 2; // 2 = TT, 3 = CT
 
   return (
     <div id="radar" className={`relative overflow-hidden origin-center`}>
@@ -82,21 +82,36 @@ const Radar = ({
           transform: `translate(${mapTranslation.x}px, ${mapTranslation.y}px) rotate(${mapRotation}deg) scale(${mapScale})`,
         }}
       >
-        <img ref={radarImageRef} className={`w-full h-auto`} src={radarImage} />
+        <img
+          ref={radarImageRef}
+          className={`w-full h-auto`}
+          src={radarImage}
+        />
 
-        {filteredPlayers.map((player) => (
-          <Player
-            key={player.m_idx}
-            playerData={player}
-            mapData={mapData}
-            radarImage={radarImageRef.current}
-            localTeam={localTeam}
-            averageLatency={averageLatency}
-            settings={settings}
-            isFollowed={settings.followPlayerId === player.m_idx}
-            mapRotation={mapRotation}
-          />
-        ))}
+        {playerArray.map((player) => {
+          const isSelectedTeam = player.m_team === drawTeam;
+          const isOtherTeam = !isSelectedTeam;
+
+          return (
+            <Player
+              key={player.m_idx}
+              playerData={player}
+              mapData={mapData}
+              radarImage={radarImageRef.current}
+              localTeam={localTeam}
+              averageLatency={averageLatency}
+              settings={settings}
+              isFollowed={settings.followPlayerId === player.m_idx}
+              mapRotation={mapRotation}
+              // 👇 info extra para el Player
+              isSelectedTeam={isSelectedTeam}
+              isOtherTeam={isOtherTeam}
+              showHealthCircle={
+                isSelectedTeam && settings.showHealthCircles
+              }
+            />
+          );
+        })}
 
         {bombData && (
           <Bomb

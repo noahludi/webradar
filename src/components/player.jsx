@@ -15,6 +15,10 @@ const Player = ({
   settings,
   isFollowed,
   mapRotation,
+  // 👇 opcionales, por si los pasás desde Radar
+  isSelectedTeam,
+  isOtherTeam,
+  showHealthCircle,
 }) => {
   const [lastKnownPosition, setLastKnownPosition] = useState(null);
 
@@ -58,12 +62,36 @@ const Player = ({
     : radarPosition;
 
   const radarImageTranslation = {
-    x: radarImageBounding.width * effectivePosition.x - playerBounding.width * 0.5,
-    y: radarImageBounding.height * effectivePosition.y - playerBounding.height * 0.5,
+    x:
+      radarImageBounding.width * effectivePosition.x -
+      playerBounding.width * 0.5,
+    y:
+      radarImageBounding.height * effectivePosition.y -
+      playerBounding.height * 0.5,
   };
 
-  // 👇 A partir de acá: TODOS se consideran "enemigos"
-  const isEnemy = true;
+  // --- LÓGICA DE TEAMS / COLORES / VIDA ---
+
+  const configuredDrawTeam = settings.drawTeam ?? null; // 2 = TT, 3 = CT
+
+  const resolvedIsSelectedTeam =
+    typeof isSelectedTeam === "boolean"
+      ? isSelectedTeam
+      : configuredDrawTeam != null
+        ? playerData.m_team === configuredDrawTeam
+        : true; // si no hay drawTeam seteado, tratamos a todos como "seleccionados"
+
+  const resolvedIsOtherTeam =
+    typeof isOtherTeam === "boolean"
+      ? isOtherTeam
+      : configuredDrawTeam != null
+        ? playerData.m_team !== configuredDrawTeam
+        : false;
+
+  const resolvedShowHealthCircle =
+    typeof showHealthCircle === "boolean"
+      ? showHealthCircle
+      : resolvedIsSelectedTeam && settings.showHealthCircles;
 
   const healthPercentage = Math.max(0, Math.min(100, playerData.m_health)) / 100;
 
@@ -72,7 +100,17 @@ const Player = ({
     255 * (1 - healthPercentage)
   )}, ${Math.round(255 * healthPercentage)}, 0)`;
 
-  // Nombre: usamos cualquiera de los dos toggles, pero ignorando teams
+  // Color del DOT:
+  //  - Team seleccionado: usamos playerColors / color "normal"
+  //  - Otro team: azul básico
+  let dotColor;
+  if (resolvedIsOtherTeam) {
+    dotColor = "#3b82f6"; // azul para el team "no seleccionado"
+  } else {
+    dotColor = playerColors[playerData.m_color] || "#ff1493";
+  }
+
+  // Nombre (de momento, como lo tenías: global según toggles)
   const showName = settings.showEnemyNames || settings.showAllNames;
 
   return (
@@ -91,8 +129,8 @@ const Player = ({
           }`,
       }}
     >
-      {/* Health circle para TODOS los players vivos */}
-      {settings.showHealthCircles && isEnemy && !playerData.m_is_dead && (
+      {/* Health circle SOLO para el team seleccionado, si está vivo */}
+      {resolvedShowHealthCircle && !playerData.m_is_dead && (
         <div
           className="absolute rounded-full pointer-events-none"
           style={{
@@ -107,7 +145,7 @@ const Player = ({
         />
       )}
 
-      {/* Nombre arriba del dot (todos se tratan como enemigos) */}
+      {/* Nombre arriba del dot */}
       {showName && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 -translate-y-1 text-center">
           <span className="text-xs text-white whitespace-nowrap max-w-[80px] inline-block overflow-hidden text-ellipsis">
@@ -123,24 +161,26 @@ const Player = ({
             }deg)`,
           width: `${scaledSize}vw`,
           height: `${scaledSize}vw`,
-          opacity: `${(playerData.m_is_dead && `0.8`) || (invalidPosition && `0`) || `1`
+          opacity: `${(playerData.m_is_dead && `0.8`) ||
+            (invalidPosition && `0`) ||
+            `1`
             }`,
         }}
       >
-        {/* Player dot: usar SIEMPRE color de enemigo */}
+        {/* Player dot */}
         <div
           className={`w-full h-full rounded-[50%_50%_50%_0%] rotate-[315deg]`}
           style={{
-            // Antes: aliado = playerColors[...] ; enemigo = #ff1493
-            // Ahora: TODOS enemigos ⇒ #ff1493
-            backgroundColor: `#ff1493`,
-            opacity: `${(playerData.m_is_dead && `0.8`) || (invalidPosition && `0`) || `1`
+            backgroundColor: dotColor,
+            opacity: `${(playerData.m_is_dead && `0.8`) ||
+              (invalidPosition && `0`) ||
+              `1`
               }`,
           }}
         />
 
         {/* View cone */}
-        {!playerData.m_is_dead && (
+        {settings.showViewCones && !playerData.m_is_dead && (
           <div
             className="absolute left-1/2 top-1/2 w-[1.5vw] h-[3vw] bg-white opacity-30"
             style={{

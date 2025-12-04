@@ -36,8 +36,8 @@ const DEFAULT_SETTINGS = {
   mapZoom: 1,
   followPlayerId: null,
   rotateWithPlayer: true,
-  mapName: DEFAULT_MAP_NAME, // ahora el mapa vive en settings
-  selectedEnemyIds: [],      // 👈 NUEVO: ids de enemigos visibles
+  mapName: DEFAULT_MAP_NAME,
+  drawTeam: 2, // 2 = TTs, 3 = CTs
 };
 
 const loadSettings = () => {
