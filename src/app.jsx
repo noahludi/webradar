@@ -1,3 +1,4 @@
+// app.jsx
 import ReactDOM from "react-dom/client";
 import { useEffect, useState } from "react";
 import "./app.css";
@@ -7,23 +8,26 @@ import { getLatency, Latency } from "./components/latency";
 import MaskedIcon from "./components/maskedicon";
 
 const CONNECTION_TIMEOUT = 5000;
-const WS_PORT = 8080;
-const DEFAULT_MAP_NAME = "de_mirage";
-const DEFAULT_MODEL = "tm_jumpsuit";
 
-const PLAYER_COLOR_TO_INDEX = {
-  blue: 0,
-  green: 1,
-  yellow: 2,
-  orange: 3,
-  purple: 4,
-  white: 5,
-};
+const USE_LOCALHOST = import.meta.env.VITE_USE_LOCALHOST === "1";
+const PUBLIC_HOST = import.meta.env.VITE_PUBLIC_HOST || "radar.mercadoplus.xyz";
+const SECRET_KEY = import.meta.env.VITE_WS_KEY || "";
+
+const PORT = 22006;
+const WS_PATH = "/cs2_webradar";
 
 const buildWsUrl = () => {
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const host = window.location.hostname || "localhost"; // ej: 192.168.2.100 en tu celu
-  return `${protocol}://${host}:${WS_PORT}`;
+  const isLocal =
+    USE_LOCALHOST ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname.startsWith("127.") ||
+    window.location.hostname.startsWith("192.168.");
+
+  const query = SECRET_KEY ? `?key=${encodeURIComponent(SECRET_KEY)}` : "";
+
+  return isLocal
+    ? `ws://localhost:${PORT}${WS_PATH}${query}`
+    : `wss://${PUBLIC_HOST}${WS_PATH}${query}`;
 };
 
 const DEFAULT_SETTINGS = {
@@ -36,60 +40,13 @@ const DEFAULT_SETTINGS = {
   mapZoom: 1,
   followPlayerId: null,
   rotateWithPlayer: true,
-  mapName: DEFAULT_MAP_NAME,
-  drawTeam: 2, // 2 = TTs, 3 = CTs
 };
 
 const loadSettings = () => {
   const savedSettings = localStorage.getItem("radarSettings");
   if (!savedSettings) return DEFAULT_SETTINGS;
-
   const parsed = JSON.parse(savedSettings);
   return { ...DEFAULT_SETTINGS, ...parsed };
-};
-
-const mapPlayerColor = (playerColor) => {
-  if (!playerColor) return 0;
-  const normalized = playerColor.toLowerCase();
-  return PLAYER_COLOR_TO_INDEX[normalized] ?? 0;
-};
-
-const parseWebSocketMessage = async (data) => {
-  if (typeof data === "string") return JSON.parse(data);
-  if (data?.text) return JSON.parse(await data.text());
-  return data;
-};
-
-const normalizeRadarPayload = (payload) => {
-  const players = Array.isArray(payload?.players) ? payload.players : [];
-  const mapName = payload?.map || DEFAULT_MAP_NAME;
-
-  const normalizedPlayers = players.map((player, index) => ({
-    m_idx: player.entity_id ?? index,
-    m_name: player.name || `Player ${index + 1}`,
-    m_steam_id: player.steamid ?? null,
-    m_team: player.team_num ?? 0,
-    m_color: mapPlayerColor(player.player_color),
-    m_health: player.health ?? 0,
-    m_armor: player.armor_value ?? 0,
-    m_money: player.balance ?? 0,
-    m_has_helmet: Boolean(player.has_helmet),
-    m_has_defuser: Boolean(player.has_defuser),
-    m_is_defusing: Boolean(player.is_defusing),
-    m_has_bomb: false,
-    m_weapons: {},
-    m_position: { x: player.X ?? 0, y: player.Y ?? 0, z: player.Z ?? 0 },
-    m_eye_angle: 0,
-    m_is_dead: player.is_alive === 0 || player.is_alive === false,
-    m_model_name: DEFAULT_MODEL,
-    m_last_place_name: player.last_place_name || "",
-  }));
-
-  return {
-    players: normalizedPlayers,
-    localTeam: normalizedPlayers[0]?.m_team ?? null,
-    mapName,
-  };
 };
 
 const App = () => {
@@ -99,8 +56,6 @@ const App = () => {
   const [localTeam, setLocalTeam] = useState();
   const [bombData, setBombData] = useState();
   const [settings, setSettings] = useState(loadSettings());
-
-  const mapName = settings.mapName || DEFAULT_MAP_NAME;
 
   useEffect(() => {
     if (
@@ -115,104 +70,105 @@ const App = () => {
     }
   }, [playerArray, localTeam, settings.followPlayerId]);
 
-  // Guardar settings en localStorage
   useEffect(() => {
     localStorage.setItem("radarSettings", JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
-    let webSocket = null;
+    let ws = null;
     let connectionTimeout = null;
+    let reconnectTimer = null;
+    let stopped = false;
 
-    const fetchData = async () => {
+    let attempt = 0;
+
+    const setMsg = (txt) => {
+      const el = document.getElementsByClassName("radar_message")[0];
+      if (el) el.textContent = txt;
+    };
+
+    const connect = () => {
+      if (stopped) return;
+
+      const url = buildWsUrl();
+      console.info(`Attempting WebSocket connection to: ${url}`);
+      setMsg(`Connecting to ${url} ...`);
+
       try {
-        const webSocketURL = buildWsUrl();
-        console.info(`Attempting WebSocket connection to: ${webSocketURL}`);
-        webSocket = new WebSocket(webSocketURL);
-      } catch (error) {
-        const el = document.getElementsByClassName("radar_message")[0];
-        if (el) el.textContent = String(error);
+        ws = new WebSocket(url);
+      } catch (err) {
+        console.error(err);
+        setMsg(String(err));
+        scheduleReconnect();
         return;
       }
 
       connectionTimeout = setTimeout(() => {
-        try {
-          webSocket.close();
-        } catch { }
+        try { ws?.close(); } catch { }
       }, CONNECTION_TIMEOUT);
 
-      webSocket.onopen = async () => {
+      ws.onopen = () => {
+        attempt = 0;
         clearTimeout(connectionTimeout);
         console.info("connected to the web socket");
+        setMsg("Connected! Waiting for data from usermode");
       };
 
-      webSocket.onclose = async () => {
+      ws.onclose = () => {
         clearTimeout(connectionTimeout);
         console.error("disconnected from the web socket");
+        if (!stopped) scheduleReconnect();
       };
 
-      webSocket.onerror = async (error) => {
+      ws.onerror = (error) => {
         clearTimeout(connectionTimeout);
-        const el = document.getElementsByClassName("radar_message")[0];
-        if (el)
-          el.textContent = `WebSocket connection failed. Check the host/URL and try again`;
         console.error(error);
+        setMsg("WebSocket connection failed. Check the host/URL and try again");
       };
 
-      webSocket.onmessage = async (event) => {
+      ws.onmessage = async (event) => {
         setAverageLatency(getLatency());
 
         try {
-          const parsedData = await parseWebSocketMessage(event.data);
-          const normalized = normalizeRadarPayload(parsedData);
+          const parsedData = JSON.parse(await event.data.text());
+          setPlayerArray(parsedData.m_players);
+          setLocalTeam(parsedData.m_local_team);
+          setBombData(parsedData.m_bomb);
 
-          setPlayerArray(normalized.players);
-          setLocalTeam(normalized.localTeam);
-
-          // si el backend manda "map", actualizamos settings.mapName
-          if (parsedData?.map) {
-            setSettings((prev) => ({
-              ...prev,
-              mapName: normalized.mapName,
-            }));
+          const map = parsedData.m_map;
+          if (map !== "invalid") {
+            setMapData({
+              ...(await (await fetch(`data/${map}/data.json`)).json()),
+              name: map,
+            });
+            document.body.style.backgroundImage = `none`;
           }
-
-          setBombData(null);
         } catch (e) {
           console.error("Failed to parse WS message:", e);
         }
       };
     };
 
-    fetchData();
+    const scheduleReconnect = () => {
+      attempt += 1;
+      const delay = Math.min(1000 * 2 ** Math.min(attempt, 6), 15000); // 1s..15s
+      console.info(`Reconnecting in ${delay}ms (attempt ${attempt})...`);
+      setMsg(`Disconnected. Reconnecting in ${Math.round(delay / 1000)}s...`);
+      reconnectTimer = setTimeout(connect, delay);
+    };
+
+    connect();
 
     return () => {
+      stopped = true;
       clearTimeout(connectionTimeout);
-      try {
-        webSocket && webSocket.close();
-      } catch { }
+      clearTimeout(reconnectTimer);
+      try { ws?.close(); } catch { }
     };
   }, []);
 
-  useEffect(() => {
-    const loadMapData = async () => {
-      try {
-        const data = await (await fetch(`data/${mapName}/data.json`)).json();
-        setMapData({ ...data, name: mapName });
-        document.body.style.backgroundImage = `none`;
-      } catch (error) {
-        console.error(`Failed to load map data for ${mapName}:`, error);
-      }
-    };
-
-    loadMapData();
-  }, [mapName]);
-
   return (
-    <div
-      className="w-screen h-screen flex flex-col"
-      style={{ background: `transparent` }}
-    >
+    <div className="w-screen h-screen flex flex-col" style={{ background: `transparent` }}>
       <div className="w-full h-full flex flex-col justify-center overflow-hidden relative">
         {bombData && bombData.m_blow_time > 0 && !bombData.m_is_defused && (
           <div className="absolute left-1/2 top-2 flex-col items-center gap-1 z-50">
@@ -230,9 +186,7 @@ const App = () => {
                 }
               />
               <span>
-                {`${bombData.m_blow_time.toFixed(1)}s ${(bombData.m_is_defusing &&
-                  `(${bombData.m_defuse_time.toFixed(1)}s)`) ||
-                  ""
+                {`${bombData.m_blow_time.toFixed(1)}s ${(bombData.m_is_defusing && `(${bombData.m_defuse_time.toFixed(1)}s)`) || ""
                   }`}
               </span>
             </div>
@@ -252,11 +206,7 @@ const App = () => {
             {playerArray
               .filter((player) => player.m_team == 2)
               .map((player) => (
-                <PlayerCard
-                  isOnRightSide={false}
-                  key={player.m_idx}
-                  playerData={player}
-                />
+                <PlayerCard right={false} key={player.m_idx} playerData={player} />
               ))}
           </ul>
 
@@ -272,21 +222,16 @@ const App = () => {
             />
           )) || (
               <div id="radar" className="relative overflow-hidden origin-center">
-                <h1 className="radar_message">
-                  Connected! Waiting for data from the WebSocket feed
-                </h1>
+                <h1 className="radar_message">Connected! Waiting for data from usermode</h1>
               </div>
             )}
 
-          <ul
-            id="counterTerrorist"
-            className="lg:flex hidden flex-col gap-7 m-0 p-0"
-          >
+          <ul id="counterTerrorist" className="lg:flex hidden flex-col gap-7 m-0 p-0">
             {playerArray
               .filter((player) => player.m_team == 3)
               .map((player) => (
                 <PlayerCard
-                  isOnRightSide={true}
+                  right={true}
                   key={player.m_idx}
                   playerData={player}
                   settings={settings}
