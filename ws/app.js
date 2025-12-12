@@ -1,103 +1,74 @@
 // app.js
-import { WebSocketServer, WebSocket } from "ws";
 import http from "http";
+import { WebSocketServer } from "ws";
 import { URL } from "url";
 
 console.log("web_server started");
 
-// Config
 const PORT = Number(process.env.PORT || 22006);
 const WS_PATH = process.env.WS_PATH || "/cs2_webradar";
-const WS_KEY = process.env.WS_KEY || ""; // si está vacío, no exige key
+const WS_KEY = process.env.WS_KEY || ""; // si está vacío, no valida
 
-const server = http.createServer();
-
-// WS server
-const wss = new WebSocketServer({
-  server,
-  path: WS_PATH,
-  clientTracking: true,
-  perMessageDeflate: false,
+const server = http.createServer((req, res) => {
+  // endpoint de health para probar rápido
+  if (req.url === "/health") {
+    res.writeHead(200, { "content-type": "text/plain" });
+    return res.end("ok");
+  }
+  res.writeHead(404);
+  res.end("not found");
 });
 
-function getClientAddress(req) {
-  // Cloudflare suele mandar CF-Connecting-IP si algún día lo ponés detrás
-  const cfIp = req.headers["cf-connecting-ip"];
-  if (typeof cfIp === "string" && cfIp.length > 0) return cfIp;
-
-  const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string" && xff.length > 0) return xff.split(",")[0].trim();
-
-  const raw = req.socket?.remoteAddress || "";
-  return raw.replace("::ffff:", "");
-}
+const wss = new WebSocketServer({ noServer: true });
 
 function isAuthorized(req) {
-  if (!WS_KEY) return true; // si no configurás WS_KEY, no valida
-  try {
-    const host = req.headers.host || "localhost";
-    const u = new URL(req.url || "", `http://${host}`);
-    const key = u.searchParams.get("key") || "";
-    return key === WS_KEY;
-  } catch {
-    return false;
-  }
+  if (!WS_KEY) return true;
+  const host = req.headers.host || "localhost";
+  const u = new URL(req.url || "", `http://${host}`);
+  return (u.searchParams.get("key") || "") === WS_KEY;
 }
 
-// Heartbeat
-function heartbeat() {
-  this.isAlive = true;
-}
+server.on("upgrade", (req, socket, head) => {
+  const host = req.headers.host || "localhost";
+  const u = new URL(req.url || "", `http://${host}`);
 
-wss.on("connection", (ws, req) => {
-  const clientAddress = getClientAddress(req);
-
-  if (!isAuthorized(req)) {
-    console.warn(`${clientAddress} rejected (bad key)`);
-    ws.close(1008, "Unauthorized"); // policy violation
+  // 1) Path exacto
+  if (u.pathname !== WS_PATH) {
+    socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+    socket.destroy();
     return;
   }
 
-  console.info(`${clientAddress} connected`);
+  // 2) Auth
+  if (!isAuthorized(req)) {
+    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    socket.destroy();
+    return;
+  }
 
-  ws.isAlive = true;
-  ws.on("pong", heartbeat);
+  // OK: upgrade a WebSocket
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit("connection", ws, req);
+  });
+});
 
-  ws.on("message", (message, isBinary) => {
-    // Broadcast a todos los clientes conectados (incluye al emisor si querés)
+wss.on("connection", (ws, req) => {
+  console.log("WS CONNECT:", req.url);
+
+  ws.on("message", (message) => {
     for (const client of wss.clients) {
-      if (client.readyState !== WebSocket.OPEN) continue;
-      try {
-        client.send(message, { binary: isBinary });
-      } catch (err) {
-        console.error("send error:", err);
-      }
+      if (client.readyState === 1) client.send(message);
     }
   });
 
   ws.on("close", (code, reason) => {
-    console.info(`${clientAddress} disconnected (${code}) ${reason?.toString?.() || ""}`.trim());
+    console.log("WS CLOSE:", code, reason?.toString?.() || "");
   });
 
-  ws.on("error", (err) => {
-    console.error(`${clientAddress} ws error:`, err);
-  });
+  ws.on("error", (err) => console.error("WS ERROR:", err));
 });
 
-// Ping interval (mantiene viva la conexión y limpia muertos)
-const interval = setInterval(() => {
-  for (const ws of wss.clients) {
-    if (ws.isAlive === false) {
-      try { ws.terminate(); } catch { }
-      continue;
-    }
-    ws.isAlive = false;
-    try { ws.ping(); } catch { }
-  }
-}, 25000);
-
-wss.on("close", () => clearInterval(interval));
-
 server.listen(PORT, "0.0.0.0", () => {
-  console.info(`listening on port '${PORT}' path '${WS_PATH}'`);
+  console.log(`listening on http://0.0.0.0:${PORT}`);
+  console.log(`ws path: ${WS_PATH}`);
 });
